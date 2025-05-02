@@ -1,0 +1,2 @@
+ALTER TABLE tb_music
+ADD COLUMN rank VARCHAR(200);
