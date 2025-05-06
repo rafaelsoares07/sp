@@ -1,4 +1,4 @@
-package dev.rafael.cadastro;
+package dev.rafael.cadastro.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
