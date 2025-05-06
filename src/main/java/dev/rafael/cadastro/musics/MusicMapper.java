@@ -1,4 +1,4 @@
-package dev.rafael.cadastro.sounds;
+package dev.rafael.cadastro.musics;
 
 import org.springframework.stereotype.Component;
 

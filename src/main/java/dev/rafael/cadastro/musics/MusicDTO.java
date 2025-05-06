@@ -1,4 +1,4 @@
-package dev.rafael.cadastro.sounds;
+package dev.rafael.cadastro.musics;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,7 +17,4 @@ public class MusicDTO {
     private String album;
     private String filePhotoPath;
     private String fileMusicPath;
-
-
-
 }

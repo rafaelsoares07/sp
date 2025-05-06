@@ -1,4 +1,4 @@
-package dev.rafael.cadastro.sounds;
+package dev.rafael.cadastro.musics;
 import dev.rafael.cadastro.config.ResponseSucessAPI;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
