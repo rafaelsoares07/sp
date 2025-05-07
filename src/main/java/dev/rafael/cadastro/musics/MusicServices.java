@@ -31,11 +31,15 @@ public class MusicServices {
 //        this.musicRepository = musicRepository;
 //    }
 
-    public List<MusicDTO> findAllMusics(){
-        List<Music> musics= musicRepository.findAll();
+    public List<MusicDTO> findAllMusics() {
+        List<Music> musics = musicRepository.findAll();
+        String basePathSounds = System.getenv("API_TESTE") + "sounds/";
+        String basePathPhotos = System.getenv("API_TESTE") + "photos/";
 
         return musics.stream()
                 .map(musicMapper::mapToDTO)
+                .peek(musicDTO -> musicDTO.setFileMusicPath(basePathSounds + musicDTO.getFileMusicPath()))
+                .peek(musicDTO -> musicDTO.setFilePhotoPath(basePathPhotos + musicDTO.getFilePhotoPath()))
                 .collect(Collectors.toList());
     }
 
