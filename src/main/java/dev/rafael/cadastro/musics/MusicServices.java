@@ -19,7 +19,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-
 public class MusicServices {
 
     //injeção de dependências, anotation substitue o construtot
