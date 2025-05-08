@@ -5,6 +5,7 @@ import dev.rafael.cadastro.users.UserRepository;
 import dev.rafael.cadastro.exceptions.GenericException;
 import dev.rafael.cadastro.config.ResponseSucessAPI;
 import dev.rafael.cadastro.infra.authetication.TokenService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +23,7 @@ public class AuthController {
 
     @CrossOrigin(origins = "http://localhost:5173")
     @PostMapping("/login")
-    public ResponseEntity<ResponseSucessAPI<String>> login (@RequestBody AuthticationDTO data){
+    public ResponseEntity<ResponseSucessAPI<LoginResponseDTO>> login (@RequestBody AuthticationDTO data){
         return new ResponseSucessAPI<>(authService.login(data),"Token criado com sucesso",HttpStatus.OK).toResponseEntity();
     }
 
@@ -31,5 +32,12 @@ public class AuthController {
     public ResponseEntity<ResponseSucessAPI<User>> register(@RequestBody AuthticationDTO data){
         System.out.println(data);
         return new ResponseSucessAPI<>(authService.register(data),"Usuário criado com sucesso!",HttpStatus.CREATED).toResponseEntity();
+    }
+
+    @CrossOrigin(origins = "http://localhost:5173")
+    @PostMapping("/validate/token")
+    public ResponseEntity<ResponseSucessAPI<String>> validToken(HttpServletRequest request){
+        System.out.println("teste");
+        return new ResponseSucessAPI<>(authService.validate(request),"Usuário criado com sucesso!",HttpStatus.OK).toResponseEntity();
     }
 }

@@ -4,8 +4,11 @@ import dev.rafael.cadastro.exceptions.GenericException;
 import dev.rafael.cadastro.infra.authetication.TokenService;
 import dev.rafael.cadastro.users.User;
 import dev.rafael.cadastro.users.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -43,11 +46,27 @@ public class AuthService {
         return usr;
     }
 
-    public String login(AuthticationDTO data){
+    public LoginResponseDTO login(AuthticationDTO data){
         var usernamePassword = new UsernamePasswordAuthenticationToken(data.username(), data.password());
         var auth = this.authenticationManager.authenticate(usernamePassword);
 
-        return tokenService.generateToken((User) auth.getPrincipal());
+        var user = (User) auth.getPrincipal();
+        String token = tokenService.generateToken(user);
+
+        return new LoginResponseDTO(token, user);
+    }
+
+    public String validate(HttpServletRequest request){
+
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new GenericException("token invalido", HttpStatus.UNAUTHORIZED);
+        }
+        String token = authHeader.substring(7);
+
+        return tokenService.validateToken(token);
+
     }
 
 }
