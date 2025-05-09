@@ -18,6 +18,5 @@ public class CodeGenerator {
 
     public static void main(String[] args) {
         String code = generateCode();
-        System.out.println("Generated code: " + code);
     }
 }

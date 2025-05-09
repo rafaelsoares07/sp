@@ -23,7 +23,7 @@ public class Room {
     }
 
     public void adicionarMembro(WebSocketSession session, String name) {
-        membros.put(session, new Member(session.getId(), name));
+        membros.put(session, new Member(session, name));
     }
 
     public void removerMembro(WebSocketSession session) {
@@ -36,15 +36,15 @@ public class Room {
 
     // Classe interna representando o membro
     public static class Member {
-        private final String sessionSocket;
+        private final WebSocketSession sessionSocket;
         private final String name;
 
-        public Member(String sessionSocket, String name) {
+        public Member(WebSocketSession sessionSocket, String name) {
             this.sessionSocket = sessionSocket;
             this.name = name;
         }
 
-        public String getSessionSocket() {
+        public WebSocketSession getSessionSocket() {
             return sessionSocket;
         }
 

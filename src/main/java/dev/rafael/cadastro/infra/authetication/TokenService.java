@@ -33,7 +33,6 @@ public class TokenService {
 
     public String validateToken(String token){
         try {
-            System.out.println("token:" +token);
             token = token.trim().replace("\n", "").replace("\r", "");
 
             Algorithm algorithm = Algorithm.HMAC256("SECRET");
@@ -44,7 +43,6 @@ public class TokenService {
                     .getSubject();
         }catch (JWTVerificationException exception){
             System.out.println(exception.toString());
-            System.out.println("caiu aqui");
             return "";
         }
     }

@@ -30,14 +30,12 @@ public class AuthController {
     @CrossOrigin(origins = "http://localhost:5173")
     @PostMapping("/register")
     public ResponseEntity<ResponseSucessAPI<User>> register(@RequestBody AuthticationDTO data){
-        System.out.println(data);
         return new ResponseSucessAPI<>(authService.register(data),"Usuário criado com sucesso!",HttpStatus.CREATED).toResponseEntity();
     }
 
     @CrossOrigin(origins = "http://localhost:5173")
     @PostMapping("/validate/token")
     public ResponseEntity<ResponseSucessAPI<String>> validToken(HttpServletRequest request){
-        System.out.println("teste");
         return new ResponseSucessAPI<>(authService.validate(request),"Usuário criado com sucesso!",HttpStatus.OK).toResponseEntity();
     }
 }
