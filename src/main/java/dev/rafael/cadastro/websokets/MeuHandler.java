@@ -19,15 +19,12 @@ public class MeuHandler extends TextWebSocketHandler {
 
     private final MusicRepository musicRepository;
     private final Map<String, BiConsumer<WebSocketSession, JsonNode>> actionHandlers = new HashMap<>();
-    private static final AtomicInteger roomIdGenerator = new AtomicInteger(1); // Começa em 1
+    private static final AtomicInteger roomIdGenerator = new AtomicInteger(1);
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
 
-
-    // Construtor para injeção de dependência
     public MeuHandler(MusicRepository musicRepository) {
         this.musicRepository = musicRepository;
 
-        // Registrar ações e seus respectivos handlers
         actionHandlers.put("create_local_room", this::handleCreateLocalRoom);
         actionHandlers.put("join_room", this::handleJoinRoom);
         actionHandlers.put("ping", this::handlePing);
@@ -36,34 +33,24 @@ public class MeuHandler extends TextWebSocketHandler {
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
-        System.out.println("Mensagem recebida: " + payload);
+
+        showRooms();
 
         ObjectMapper mapper = new ObjectMapper();
         JsonNode jsonNode = mapper.readTree(payload);
 
         if (jsonNode.has("action")) {
             String action = jsonNode.get("action").asText();
-            System.out.println("Ação recebida: " + action);
 
             BiConsumer<WebSocketSession, JsonNode> handler = actionHandlers.get(action);
 
             if (handler != null) {
                 handler.accept(session, jsonNode);
             } else {
-                session.sendMessage(new TextMessage("Ação desconhecida: " + action));
+                sendJsonMessage(session, "error", action, null, "Ação desconhecida: " + action);
             }
         } else {
-            session.sendMessage(new TextMessage("JSON inválido: campo 'action' não encontrado."));
-        }
-    }
-
-    private String convertListToJson(Object object) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            return objectMapper.writeValueAsString(object);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return "Erro ao converter a lista de músicas para JSON";
+            sendJsonMessage(session, "error", "unknown", null, "JSON inválido: campo 'action' não encontrado.");
         }
     }
 
@@ -71,66 +58,85 @@ public class MeuHandler extends TextWebSocketHandler {
         try {
             showRooms();
 
-            if(usuarioJaEstaEmAlgumaSala(session)){
-                session.sendMessage(new TextMessage("usuário já está em uma sala"));
+            if (usuarioJaEstaEmAlgumaSala(session)) {
+                sendJsonMessage(session, "error", "create_local_room", null, "Usuário já está em uma sala");
                 return;
             }
 
             String roomId = String.valueOf(roomIdGenerator.getAndIncrement());
-            String code = "ds33"; // Aqui pode ser gerado de forma dinâmica, caso necessário
+            String code = CodeGenerator.generateCode();
 
             Room novaSala = new Room(roomId, code);
 
-            // Vamos pegar o nome do usuário do JSON de entrada
             String name = data.has("name") ? data.get("name").asText() : "Unknown User";
             novaSala.adicionarMembro(session, name);
 
-            rooms.put(roomId, novaSala);
+            rooms.put(code, novaSala);
 
-            ObjectMapper mapper = new ObjectMapper();
-            String resposta = mapper.createObjectNode()
-                    .put("action", "room_created")
-                    .put("roomId", roomId)
-                    .put("code", code)
-                    .toString();
+            Map<String, String> responseData = new HashMap<>();
+            responseData.put("roomId", roomId);
+            responseData.put("code", code);
 
-            System.out.println(resposta);
-            session.sendMessage(new TextMessage(resposta));
-        } catch (IOException e) {
+            sendJsonMessage(session, "success", "room_created", responseData, "Sala criada com sucesso");
+        } catch (Exception e) {
             e.printStackTrace();
+            sendJsonMessage(session, "error", "create_local_room", null, "Erro interno ao criar a sala");
         }
     }
 
     private void handleJoinRoom(WebSocketSession session, JsonNode data) {
-        String roomId = data.has("roomId") ? data.get("roomId").asText() : "unknown";
+        String roomId = data.has("roomId") ? data.get("roomId").asText() : null;
         String name = data.has("name") ? data.get("name").asText() : "Unknown User";
-        System.out.println("Entrando na sala: " + roomId);
-        Room room = rooms.get(roomId);
-        if (room == null) {
-            System.out.println("Sala não existe!");
+
+        if (roomId == null) {
+            sendJsonMessage(session, "error", "join_room", null, "roomId é obrigatório");
             return;
         }
+
+        Room room = rooms.get(roomId);
+        if (room == null) {
+            sendJsonMessage(session, "error", "join_room", null, "Sala não encontrada");
+            return;
+        }
+
         room.adicionarMembro(session, name);
+        showRooms();
+
+        Map<String, String> responseData = new HashMap<>();
+        responseData.put("roomId", roomId);
+        responseData.put("message", "Entrou na sala com sucesso");
+
+        sendJsonMessage(session, "success", "join_room", responseData, "Usuário adicionado à sala");
+    }
+
+    private void handlePing(WebSocketSession session, JsonNode data) {
+        sendJsonMessage(session, "success", "ping", null, "pong");
         showRooms();
     }
 
-
-
-    private void handlePing(WebSocketSession session, JsonNode data) {
+    private void sendJsonMessage(WebSocketSession session, String type, String action, Map<String, ?> data, String message) {
+        ObjectMapper mapper = new ObjectMapper();
         try {
-            session.sendMessage(new TextMessage("pong"));
+            var node = mapper.createObjectNode();
+            node.put("type", type);
+            node.put("action", action);
+            if (data != null) {
+                node.set("data", mapper.valueToTree(data));
+            }
+            if (message != null) {
+                node.put("message", message);
+            }
+            session.sendMessage(new TextMessage(node.toString()));
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-
     private boolean usuarioJaEstaEmAlgumaSala(WebSocketSession session) {
-        for (Map.Entry<String, Room> entry : rooms.entrySet()) {
-            Room room = entry.getValue();
+        for (Room room : rooms.values()) {
             for (Room.Member member : room.getMembros().values()) {
                 if (member.getSessionSocket().equals(session.getId())) {
-                    System.out.println("Usuário já está na sala: " + entry.getKey() +
+                    System.out.println("Usuário já está na sala: " + room.getId() +
                             " - Nome: " + member.getName() +
                             " - Session Socket: " + member.getSessionSocket());
                     return true;
@@ -150,5 +156,4 @@ public class MeuHandler extends TextWebSocketHandler {
             });
         });
     }
-
 }
