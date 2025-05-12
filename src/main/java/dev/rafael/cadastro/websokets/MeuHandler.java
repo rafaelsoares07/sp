@@ -28,6 +28,8 @@ public class MeuHandler extends TextWebSocketHandler {
         actionHandlers.put("join_room", this::handleJoinRoom);
         actionHandlers.put("ping", this::handlePing);
         actionHandlers.put("notify", this::handleSendMessage);
+        actionHandlers.put("get_game_state", this::handleGetGameSatate);
+        actionHandlers.put("send_message", this::sendMessageRoom);
     }
 
     @Override
@@ -51,6 +53,23 @@ public class MeuHandler extends TextWebSocketHandler {
         }
     }
 
+    private void handleGetGameSatate(WebSocketSession session, JsonNode data) {
+        try {
+            Room salaDoUsuario = encontrarSalaPorSessao(session);
+            if (salaDoUsuario == null) {
+                sendJsonMessage(session, "error", "get_game_state", null, "Você não está em nenhuma sala.");
+                return;
+            }
+
+            Map<String, Object> salaJson = salaParaJson(salaDoUsuario);
+            sendJsonMessage(session, "success", "get_game_state", salaJson, "Estado da sala recuperado com sucesso.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            sendJsonMessage(session, "error", "get_game_state", null, "Erro ao recuperar estado da sala.");
+        }
+    }
+
+
     private void handleCreateLocalRoom(WebSocketSession session, JsonNode data) {
         try {
             if (usuarioJaEstaEmAlgumaSala(session)) {
@@ -60,7 +79,9 @@ public class MeuHandler extends TextWebSocketHandler {
 
             String roomId = String.valueOf(roomIdGenerator.getAndIncrement());
             String code = CodeGenerator.generateCode();
-            Room novaSala = new Room(roomId, code);
+            Room novaSala = new Room(roomId, code, session.getId());
+
+            System.out.println(novaSala.getGameMode());
 
             String name = data.has("name") ? data.get("name").asText() : "Unknown User";
             novaSala.adicionarMembro(session, name);
@@ -97,28 +118,49 @@ public class MeuHandler extends TextWebSocketHandler {
         for (Room.Member membro : room.getMembros().values()) {
             WebSocketSession s = membro.getSessionSocket();
             if (s != null && s.isOpen()) {
-                sendJsonMessage(s, "info", "join_room", salaJsonAtualizada, name + " entrou na sala");
+                sendJsonMessage(s, "success", "join_room", salaJsonAtualizada, name + " entrou na sala!");
             }
         }
 
-
-
+        System.out.println("chegfou aqui");
     }
 
-    private void sendMessageRoom(Room room, String nomeUsuario) {
-        Map<String, String> messageData = new HashMap<>();
-        messageData.put("user", nomeUsuario);
-        messageData.put("message", nomeUsuario + " entrou na sala");
 
-        for (Room.Member member : room.getMembros().values()) {
-            WebSocketSession session = member.getSessionSocket();
-            if (session != null && session.isOpen()) {
-                sendJsonMessage(session, "info", "user_joined", messageData, nomeUsuario + " entrou na sala");
-            } else {
-                System.out.println("Sessão fechada ou nula para o membro: " + member.getName());
+
+
+    private void sendMessageRoom(WebSocketSession session, JsonNode data) {
+        String roomId = data.has("roomId") ? data.get("roomId").asText() : null;
+
+        if (roomId == null) {
+            sendJsonMessage(session, "error", "send_message", null, "roomId é obrigatório");
+            return;
+        }
+
+        Room room = rooms.get(roomId);
+        if (room == null) {
+            sendJsonMessage(session, "error", "send_message", null, "Sala não encontrada");
+            return;
+        }
+
+        Map<String, Object> salaJsonAtualizada = salaParaJson(room);
+        String mensagem = data.has("message") ? data.get("message").asText() : "";
+
+        // Verifica se a mensagem não está vazia
+        if (mensagem.trim().isEmpty()) {
+            sendJsonMessage(session, "error", "send_message", null, "Mensagem não pode ser vazia");
+            return;
+        }
+
+        for (Room.Member membro : room.getMembros().values()) {
+            WebSocketSession membroSession = membro.getSessionSocket();
+//            && !membroSession.equals(session)
+            if (membroSession != null && membroSession.isOpen() ) {
+                // Envia a mensagem para todos os membros, exceto o que emitiu a mensagem
+                sendJsonMessage(membroSession, "success", "send_message", salaJsonAtualizada, mensagem);
             }
         }
     }
+
 
     private void handleSendMessage(WebSocketSession session, JsonNode data) {
         String message = data.has("message") ? data.get("message").asText() : null;
@@ -213,6 +255,7 @@ public class MeuHandler extends TextWebSocketHandler {
         }
 
         salaJson.put("members", membrosJson);
+        salaJson.put("owner", room.getOwner());
         return salaJson;
     }
 }
