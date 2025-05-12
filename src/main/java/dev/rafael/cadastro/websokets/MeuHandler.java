@@ -30,6 +30,8 @@ public class MeuHandler extends TextWebSocketHandler {
         actionHandlers.put("notify", this::handleSendMessage);
         actionHandlers.put("get_game_state", this::handleGetGameSatate);
         actionHandlers.put("send_message", this::sendMessageRoom);
+        actionHandlers.put("update_room_settings", this::handleUpdateRoomSettings);
+
     }
 
     @Override
@@ -68,6 +70,58 @@ public class MeuHandler extends TextWebSocketHandler {
             sendJsonMessage(session, "error", "get_game_state", null, "Erro ao recuperar estado da sala.");
         }
     }
+
+
+    private void handleUpdateRoomSettings(WebSocketSession session, JsonNode data) {
+        try {
+            String roomId = data.has("roomId") ? data.get("roomId").asText() : null;
+
+            if (roomId == null || !rooms.containsKey(roomId)) {
+                sendJsonMessage(session, "error", "update_room_settings", null, "Sala não encontrada");
+                return;
+            }
+
+            Room room = rooms.get(roomId);
+
+            // Verifica se quem está atualizando é o dono da sala
+            if (!room.getOwner().equals(session.getId())) {
+                sendJsonMessage(session, "error", "update_room_settings", null, "Apenas o dono da sala pode atualizar as configurações");
+                return;
+            }
+
+            // Obtem as configurações do JSON
+            JsonNode settings = data.get("settings");
+
+            if (settings != null) {
+                if (settings.has("tempoMusica")) room.setSongTime(settings.get("tempoMusica").asInt());
+                if (settings.has("genero")) room.setGenre(settings.get("genero").asText());
+                if (settings.has("numeroRodadas")) room.setRounds(settings.get("numeroRodadas").asInt());
+                if (settings.has("modoJogo")) room.setGameMode(settings.get("modoJogo").asText());
+            }
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, Object> settingsMap = objectMapper.convertValue(settings, Map.class);
+
+            // Notifica todos os membros da sala sobre a atualização
+            for (Room.Member membro : room.getMembros().values()) {
+                WebSocketSession membroSession = membro.getSessionSocket();
+                if (membroSession != null && membroSession.isOpen()) {
+                    sendJsonMessage(membroSession, "success", "update_room_settings", settingsMap, "Configurações da sala atualizadas");
+                }
+            }
+
+            // Converte o JsonNode settings para Map<String, Object>
+
+
+            // Envia as configurações de volta para o cliente que fez a solicitação
+            sendJsonMessage(session, "success", "update_room_settings", settingsMap, "Configurações da sala atualizadas");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            sendJsonMessage(session, "error", "update_room_settings", null, "Erro ao atualizar configurações da sala");
+        }
+    }
+
 
 
     private void handleCreateLocalRoom(WebSocketSession session, JsonNode data) {
